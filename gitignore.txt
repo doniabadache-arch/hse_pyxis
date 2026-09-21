@@ -1,0 +1,26 @@
+# Secrets & environment
+.env
+.env.*
+*.key
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Databases (données d'audit : ne pas publier)
+*.db
+*.db-journal
+# Optionnel : décommentez la ligne suivante pour publier la matrice de risque
+# (matrice.db ne contient que la configuration des matrices, pas de secrets)
+# !matrice.db
+
+# Uploads (preuves envoyées par les utilisateurs)
+audit_evidence/
+uploads/
+
+# Logs
+*.log

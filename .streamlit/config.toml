@@ -1,0 +1,17 @@
+# .streamlit/config.toml — HSE PYXIS
+# Le thème natif Streamlit est aligné sur la palette PYXIS afin qu'il
+# n'entre pas en conflit avec le CSS injecté par ui/theme.py.
+# Le basculement dark/light réel est géré par l'application (ui/theme.py).
+
+[theme]
+base = "dark"
+primaryColor = "#00C853"
+backgroundColor = "#0A1628"
+secondaryBackgroundColor = "#152238"
+textColor = "#F5F7FA"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+

@@ -1,0 +1,23 @@
+# Secrets & environment
+.env
+.env.local
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Database
+*.db
+*.db-journal
+
+# Uploads
+audit_evidence/
+uploads/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Logs
+*.log

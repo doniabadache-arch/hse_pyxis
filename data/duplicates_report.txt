@@ -1,0 +1,151 @@
+======================================================================
+DUPLICATES REPORT
+======================================================================
+Generated: 2026-09-14T10:20:32.395774
+
+Total records (raw)    : 95
+Unique substances      : 76
+Duplicate groups       : 11
+Records removed        : 19
+
+======================================================================
+DUPLICATE GROUPS
+======================================================================
+
+
+1. Key: acidesulfurique
+   Count: 4
+   Merged name: ACIDE SULFURIQUE
+   Files:
+      - acide sulfurique (97%).htm
+      - acide sulfurique 97%.htm
+      - acide sulfurique a 94-96 -98 %.htm
+      - acide sulfurique pur a 98%.htm
+   Names found:
+      - ACIDE SULFURIQUE
+      - ACIDE SULFURIQUE
+      - ACIDE SULFURIQUE
+      - ACIDE SULFURIQUE
+----------------------------------------------------------------------
+
+2. Key: trichlorethylene
+   Count: 4
+   Merged name: TRICHLORETHYLENE
+   Files:
+      - altene D6.htm
+      - altene D8.htm
+      - altidry P.htm
+      - altidry SV.htm
+   Names found:
+      - TRICHLORETHYLENE
+      - TRICHLORETHYLENE
+      - TRICHLORETHYLENE
+      - TRICHLORETHYLENE
+----------------------------------------------------------------------
+
+3. Key: acidefluorhydriqueensolution60
+   Count: 3
+   Merged name: ACIDE FLUORHYDRIQUE EN SOLUTION <=60%
+   Files:
+      - acide fluorhydrique en solution a 35 % -50 %.htm
+      - acide fluorhydrique en solution a 60 %.htm
+      - acide fluorhydrique en solution a 70%.htm
+   Names found:
+      - ACIDE FLUORHYDRIQUE EN SOLUTION <=60%
+      - ACIDE FLUORHYDRIQUE EN SOLUTION <=60%
+      - ACIDE FLUORHYDRIQUE EN SOLUTION >60%
+----------------------------------------------------------------------
+
+4. Key: acidesphosphoriques
+   Count: 3
+   Merged name: ACIDES PHOSPHORIQUES
+   Files:
+      - acide polyphosphorique 100 - 102 - 104.htm
+      - acide polyphosphorique 97%.htm
+      - acides polyphosphoriques 113-115-116-117.htm
+   Names found:
+      - ACIDES PHOSPHORIQUES
+      - ACIDES PHOSPHORIQUES
+      - ACIDES PHOSPHORIQUES
+----------------------------------------------------------------------
+
+5. Key: acidethioglycolique
+   Count: 3
+   Merged name: ACIDE THIOGLYCOLIQUE
+   Files:
+      - acide thioglycolique 80%.htm
+      - acide thioglycolique 85%.htm
+      - acide thioglycolique.htm
+   Names found:
+      - ACIDE THIOGLYCOLIQUE
+      - ACIDE THIOGLYCOLIQUE
+      - ACIDE THIOGLYCOLIQUE
+----------------------------------------------------------------------
+
+6. Key: hydrocarburesliquidesnsape23et61c
+   Count: 3
+   Merged name: HYDROCARBURES LIQUIDES NSA PE >=23 et <=61 C
+   Files:
+      - actene 58 S.htm
+      - actene 58.htm
+      - actene.htm
+   Names found:
+      - HYDROCARBURES LIQUIDES NSA PE >=23 et <=61 C
+      - HYDROCARBURES LIQUIDES NSA PE >=23 et <=61 C
+      - HYDROCARBURES LIQUIDES NSA PE >=23 et <=61 C
+----------------------------------------------------------------------
+
+7. Key: acideacryliquestabilise
+   Count: 2
+   Merged name: ACIDE ACRYLIQUE STABILISE
+   Files:
+      - acide acrylique glacial.htm
+      - acide acrylique technique.htm
+   Names found:
+      - ACIDE ACRYLIQUE STABILISE
+      - ACIDE ACRYLIQUE STABILISE
+----------------------------------------------------------------------
+
+8. Key: acidebromhydriqueensolutionconc49
+   Count: 2
+   Merged name: ACIDE BROMHYDRIQUE EN SOLUTION (Conc. <= 49%)
+   Files:
+      - acide bromhydrique 48% en solution.htm
+      - acide bromhydrique 62%.htm
+   Names found:
+      - ACIDE BROMHYDRIQUE EN SOLUTION (Conc. <= 49%)
+      - ACIDE BROMHYDRIQUE EN SOLUTION (Conc.>49%)
+----------------------------------------------------------------------
+
+9. Key: acidecyanhydriquestabilise
+   Count: 2
+   Merged name: ACIDE CYANHYDRIQUE STABILISE
+   Files:
+      - acide cyanhydrique pur stabilise.htm
+      - acide cyanhydrique pur.htm
+   Names found:
+      - ACIDE CYANHYDRIQUE STABILISE
+      - ACIDE CYANHYDRIQUE STABILISE
+----------------------------------------------------------------------
+
+10. Key: acidemethacryliquestabilise
+   Count: 2
+   Merged name: ACIDE METHACRYLIQUE STABILISE
+   Files:
+      - acide methacrylique a 80%.htm
+      - acide methacrylique.htm
+   Names found:
+      - ACIDE METHACRYLIQUE STABILISE
+      - ACIDE METHACRYLIQUE STABILISE
+----------------------------------------------------------------------
+
+11. Key: acrylatedec1822
+   Count: 2
+   Merged name: ACRYLATE DE C 18-22
+   Files:
+      - acrylate de C 18-22 (A 18-22).htm
+      - acrylate de C 20-22 (A 20-22).htm
+   Names found:
+      - ACRYLATE DE C 18-22
+      - ACRYLATE DE C 18-22
+----------------------------------------------------------------------
