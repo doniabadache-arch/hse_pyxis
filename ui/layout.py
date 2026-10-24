@@ -8,7 +8,7 @@ CORRECTIONS
    changement ne s'appliquait qu'à l'interaction suivante. Corrigé.
 3. La clé du radio Thème de la sidebar est renommée
    ("layout_sidebar_theme_radio") pour ne plus entrer en conflit avec
-   celle déjà utilisée dans audit_app.py (DuplicateWidgetID).
+   celle déjà utilisée dans inspection_app.py (DuplicateWidgetID).
 """
 
 import streamlit as st
@@ -65,7 +65,7 @@ def render_header():
     st.markdown("---")
 
 
-def render_sidebar(audit_id: str = ""):
+def render_sidebar(inspection_id: str = ""):
     """Sidebar HSE PYXIS (langue + thème)."""
     with st.sidebar:
         logo_path = Path("assets/logo.png")

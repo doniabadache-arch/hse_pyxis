@@ -3,13 +3,13 @@ ui/display.py — Couche de traduction pour l'AFFICHAGE uniquement
 ================================================================
 Principe fondamental :
     * Les VALEURS STOCKÉES en base de données ne changent jamais.
-      ("C", "PC", "NC", "À auditer", "Direct", "Estimated", "manuelle", ...)
+      ("C", "PC", "NC", "À inspecter", "Direct", "Estimated", "manuelle", ...)
     * Seul l'AFFICHAGE passe par les fonctions de ce module.
 
 Cela garantit que :
-    - les comparaisons dans le code (`if conformite == "À auditer"`) continuent
+    - les comparaisons dans le code (`if conformite == "À inspecter"`) continuent
       de fonctionner quelle que soit la langue ;
-    - un audit saisi en français reste lisible en arabe ou en anglais ;
+    - une inspection saisie en français reste lisible en arabe ou en anglais ;
     - aucune migration de base n'est nécessaire.
 
 Fonctions principales
@@ -26,10 +26,10 @@ tr_reco / tr_lira / tr_method / tr_meteo / tr_industry / tr_stability
 
 import re
 
-from audit_db import (
+from inspection_db import (
     symptom_of, symptom_all_text,
     section_of, equipment_of, hazard_of, method_translation_of,
-    evidence_of, technical_reference_of,
+    pick_translation,
     COL_METHOD_RAW,
 )
 from ui.i18n import t, LANGUAGES, load_translations, get_current_lang
@@ -38,18 +38,18 @@ from ui.i18n import t, LANGUAGES, load_translations, get_current_lang
 # 1. CONFORMITÉ
 # ============================================================
 # ⚠️ Ces valeurs sont stockées en base : NE JAMAIS les traduire à la source.
-CONFORMITE_A_AUDITER = "À auditer"
-CONFORMITE_VALUES = [CONFORMITE_A_AUDITER, "C", "PC", "NC"]
+CONFORMITE_A_INSPECTER = "À inspecter"
+CONFORMITE_VALUES = [CONFORMITE_A_INSPECTER, "C", "PC", "NC"]
 
 _CONFORMITE_KEYS = {
-    CONFORMITE_A_AUDITER: "values.conformite.to_audit",
+    CONFORMITE_A_INSPECTER: "values.conformite.to_inspect",
     "C": "values.conformite.c",
     "PC": "values.conformite.pc",
     "NC": "values.conformite.nc",
 }
 
 CONFORMITE_EMOJI = {
-    CONFORMITE_A_AUDITER: "⚪",
+    CONFORMITE_A_INSPECTER: "⚪",
     "C": "✅",
     "PC": "⚠️",
     "NC": "❌",
@@ -88,7 +88,7 @@ def conformite_from_display(label: str) -> str:
             if candidate is not None and candidate == label:
                 return value
 
-    return CONFORMITE_A_AUDITER
+    return CONFORMITE_A_INSPECTER
 
 
 # ============================================================
@@ -180,7 +180,7 @@ def _level_default_patterns():
 def tr_matrix_label(label, lang: str | None = None) -> str:
     """Traduit un libellé de matrice s'il fait partie des valeurs par défaut.
 
-    Un libellé personnalisé (saisi par l'auditeur) est renvoyé inchangé :
+    Un libellé personnalisé (saisi par l'inspecteur) est renvoyé inchangé :
     il n'existe qu'en une seule langue en base, et le traduire
     automatiquement serait faux.
     """
@@ -323,16 +323,6 @@ def tr_hazard(item, lang: str | None = None) -> str:
     return value.capitalize() if lang == "en" and value.islower() else value
 
 
-def tr_evidence(item, lang: str | None = None) -> str:
-    """Preuve requise d'une ligne de la checklist, dans la langue de l'interface."""
-    return evidence_of(item, lang or get_current_lang())
-
-
-def tr_technical_reference(item, lang: str | None = None) -> str:
-    """Référence technique d'une ligne de la checklist, dans la langue de l'interface."""
-    return technical_reference_of(item, lang or get_current_lang())
-
-
 def tr_method_of(item, lang: str | None = None) -> str:
     """Méthode d'estimation de fréquence d'une ligne de la checklist.
 
@@ -355,3 +345,18 @@ def symptom_search_text(item) -> str:
     """Symptôme dans les 3 langues (pour que la recherche marche quelle que
     soit la langue affichée ou tapée)."""
     return symptom_all_text(item)
+
+
+# ============================================================
+# 6. DOMAINES & SECTIONS (feuilles Excel "Domains" / "Sections")
+# ============================================================
+def tr_catalog_name(row, lang: str | None = None) -> str:
+    """Nom d'un domaine ou d'une section (dict issu de db.get_domains() /
+    db.get_sections()) dans la langue de l'interface.
+
+    Repli automatique (traduction vide) : langue demandée -> anglais -> français -> arabe.
+    """
+    return pick_translation(
+        lang or get_current_lang(),
+        row.get("name_en"), row.get("name_fr"), row.get("name_ar"),
+    )
