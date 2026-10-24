@@ -26,7 +26,7 @@ Le LLM n'effectue aucun calcul de risque et ne valide seul aucune non-conformit�
 Ce module est une aide à la décision soumise à validation humaine.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 
 # ============================================================
@@ -155,7 +155,7 @@ def calculer_ratio_benefice_cout(perte_annuelle_attendue: float,
 # ============================================================
 # Codes STABLES stockés en base et traduits à l'affichage par
 # ui.display.tr_reco(). Ne jamais stocker de phrase traduite ici :
-# un audit enregistré en français doit rester lisible en arabe.
+# une inspection enregistrée en français doit rester lisible en arabe.
 RECOMMANDATION_CODES = (
     "CB_STRONGLY_RECOMMENDED",
     "CB_RECOMMENDED",

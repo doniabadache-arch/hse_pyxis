@@ -3,20 +3,26 @@ results_viewer.py
 =================
 Dictionnaire de fonctions d'affichage et de classification.
 
-Extrait de app_risk.pyy.py — utilisé par audit_app.py pour :
+Extrait de app_risk.pyy.py — utilisé par inspection_app.py pour :
 - charger la matrice depuis matrice.db (dynamique)
 - classifier les symptômes NC/PC (fréquence → niveau probabilité → classe risque)
 - afficher heatmap, metric cards, graphiques Plotly
+- 🆕 exporter les résultats en Excel (multi-feuilles) ou PDF signé + QR
 
 Ne contient AUCUNE logique métier (Monte Carlo, PLL, coût-bénéfice, etc.).
 Ces logiques restent dans leurs modules respectifs.
+
+v2 — Ajouts :
+  • export_to_excel() : 4 feuilles (Classification, HR, CB, Dispersion)
+  • export_to_pdf()   : rapport PDF signé avec QR code
+  • Les deux fonctions sont de simples wrappers autour de
+    exports/excel_exporter.py et pdf_renderer.py
 """
 
 import sqlite3
 from contextlib import closing
 
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -277,8 +283,6 @@ def render_plots(df_classified, df_seuils, top_n=10):
     # --- Pie ---
     with col1:
         class_counts = df_classified["risk_class"].value_counts()
-        # Les clés restent les valeurs stockées ; seuls les noms affichés
-        # sont traduits (la correspondance couleur <-> classe est préservée).
         colors_map = {
             tr_matrix_label(row["risk_label"]): row["color"]
             for _, row in df_seuils.iterrows()
@@ -321,3 +325,205 @@ def render_plots(df_classified, df_seuils, top_n=10):
         ))
         fig3.update_layout(barmode="group", height=400)
         show_plotly(fig3)
+
+
+# ============================================================
+# 8. 🆕 EXPORT EXCEL (multi-feuilles)
+# ============================================================
+def export_to_excel(
+    df_classified=None,
+    df_hr=None,
+    df_cb=None,
+    df_disp=None,
+    extra_sheets=None,
+):
+    """
+    Wrapper pratique autour de `exports.excel_exporter.export_results_to_excel`.
+
+    Crée un fichier .xlsx avec plusieurs feuilles :
+        • Classification  (toujours)
+        • Risque Humain    (si df_hr non vide)
+        • Coût-Bénéfice    (si df_cb non vide)
+        • Dispersion       (si df_disp non vide)
+        • extra_sheets     (dict {nom_feuille: DataFrame}, optionnel)
+
+    Args:
+        df_classified : DataFrame des résultats classifiés (obligatoire)
+        df_hr         : DataFrame risque humain (optionnel)
+        df_cb         : DataFrame coût-bénéfice (optionnel)
+        df_disp       : DataFrame dispersion (optionnel)
+        extra_sheets  : dict {nom: DataFrame} pour ajouter d'autres feuilles
+
+    Returns:
+        bytes du fichier .xlsx
+
+    Raises:
+        ImportError si `openpyxl` ou `exports.excel_exporter` indisponible
+    """
+    try:
+        from exports.excel_exporter import export_results_to_excel
+    except ImportError as e:
+        raise ImportError(
+            "Module `exports.excel_exporter` introuvable. "
+            "Vérifiez que le dossier `exports/` existe à la racine du projet "
+            "et contient `__init__.py` et `excel_exporter.py`."
+        ) from e
+
+    return export_results_to_excel(
+        df_classified=df_classified,
+        df_hr=df_hr,
+        df_cb=df_cb,
+        df_disp=df_disp,
+        extra_sheets=extra_sheets,
+    )
+
+
+# ============================================================
+# 9. 🆕 EXPORT PDF (rapport signé + QR)
+# ============================================================
+def export_to_pdf(
+    inspection_id,
+    site_name="",
+    inspector_name="",
+    results_df=None,
+    summary=None,
+    notes="",
+    language="fr",
+):
+    """
+    Wrapper pratique autour de `pdf_renderer.render_pdf_report`.
+
+    Génère un PDF avec :
+        • En-tête HSE PYXIS
+        • Bloc méta (site, inspecteur, date, langue, référence)
+        • Tableau de synthèse (`summary`)
+        • Tableau des résultats (`results_df`)
+        • QR code de vérification + signature électronique
+
+    Args:
+        inspection_id : identifiant de l'inspection
+        site_name     : nom du site
+        inspector_name: nom de l'inspecteur (pour la signature)
+        results_df    : DataFrame des résultats classifiés
+        summary       : dict {indicateur: valeur} (ex: {"NC": 5, "C": 20})
+        notes         : texte libre ajouté en fin de rapport
+        language      : code langue pour le rapport ('fr', 'ar', 'en')
+
+    Returns:
+        bytes du fichier PDF, ou None si `reportlab` / `qrcode` manquent.
+    """
+    try:
+        from pdf_renderer import render_pdf_report
+    except ImportError as e:
+        # Ne pas planter l'app : retourner None et laisser l'UI afficher un message
+        st.warning(
+            "⚠️ Module `pdf_renderer` introuvable. "
+            "Vérifiez qu'il existe à la racine du projet."
+        )
+        return None
+
+    return render_pdf_report(
+        inspection_id=str(inspection_id),
+        site_name=site_name,
+        inspector_name=inspector_name,
+        results_df=results_df,
+        summary=summary or {},
+        extra_notes=notes,
+        language=language,
+    )
+
+
+# ============================================================
+# 10. 🆕 HELPERS UI — boutons de téléchargement prêts à l'emploi
+# ============================================================
+def render_excel_download_button(
+    inspection_id,
+    df_classified=None,
+    df_hr=None,
+    df_cb=None,
+    df_disp=None,
+    key=None,
+    label=None,
+):
+    """
+    Affiche directement un bouton de téléchargement Excel.
+    Utilise les mêmes paramètres que `export_to_excel`.
+    """
+    try:
+        excel_bytes = export_to_excel(
+            df_classified=df_classified,
+            df_hr=df_hr,
+            df_cb=df_cb,
+            df_disp=df_disp,
+        )
+        st.download_button(
+            label=label or t("exports.excel_button"),
+            data=excel_bytes,
+            file_name=f"inspection_{inspection_id}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key=key or f"dl_excel_{inspection_id}",
+        )
+    except Exception as e:
+        st.warning(t("exports.excel_error", error=e))
+
+
+def render_pdf_download_button(
+    inspection_id,
+    site_name="",
+    inspector_name="",
+    results_df=None,
+    summary=None,
+    notes="",
+    language="fr",
+    key=None,
+    label=None,
+):
+    """
+    Affiche directement un bouton de téléchargement PDF.
+    Utilise les mêmes paramètres que `export_to_pdf`.
+    """
+    try:
+        pdf_bytes = export_to_pdf(
+            inspection_id=inspection_id,
+            site_name=site_name,
+            inspector_name=inspector_name,
+            results_df=results_df,
+            summary=summary,
+            notes=notes,
+            language=language,
+        )
+        if pdf_bytes:
+            st.download_button(
+                label=label or t("exports.pdf_button"),
+                data=pdf_bytes,
+                file_name=f"rapport_{inspection_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key=key or f"dl_pdf_{inspection_id}",
+            )
+        else:
+            st.caption(t("exports.pdf_unavailable"))
+    except Exception as e:
+        st.warning(t("exports.pdf_error", error=e))
+
+
+# ============================================================
+# Export public
+# ============================================================
+__all__ = [
+    # Chargement & classification
+    "load_matrix_dfs",
+    "freq_to_prob_level",
+    "get_risk_class",
+    "classify_results_df",
+    # Affichage
+    "render_metric_cards",
+    "render_heatmap",
+    "render_plots",
+    # 🆕 Exports
+    "export_to_excel",
+    "export_to_pdf",
+    "render_excel_download_button",
+    "render_pdf_download_button",
+]

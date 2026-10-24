@@ -1,9 +1,45 @@
+# ============================================================
+# HSE PYXIS — Dépendances complètes
+# ============================================================
+# Installation :
+#   pip install -r requirements.txt
+# ============================================================
+
+# === Core ===
 streamlit>=1.30.0
-pandas
-numpy
-plotly
-openpyxl
-python-dotenv
-groq
-google-generativeai
-requests
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.18.0
+
+# === Excel (mission #9) ===
+openpyxl>=3.1.0
+
+# === Images / traitement ===
+Pillow>=10.0.0
+
+# === HTTP / API ===
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+python-dotenv>=1.0.0
+
+# === IA (Gemini) ===
+google-generativeai>=0.8.0
+
+# === Cartographie (Leaflet + OpenStreetMap) ===
+folium>=0.14.0
+streamlit-folium>=0.15.0
+geopy>=2.4.0
+
+# === Documents (rapport / PDCA export) ===
+python-docx>=1.1.0
+pypdf>=4.0.0
+
+# === 📄 PDF + QR (mission #7 — rapport signé) ===
+reportlab>=4.0.0
+qrcode[pil]>=7.4.0
+
+# === 🛰️ GPS (dispersion wizard — optionnel) ===
+streamlit-js-eval>=0.1.6
+
+# === 🗓️ Calendrier (Programme d'inspection — optionnel) ===
+streamlit-calendar>=1.0.0

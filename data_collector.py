@@ -1,7 +1,7 @@
 """
 ai/data_collector.py — HSE PYXIS
 ==================================
-Collecte toutes les données d'audit depuis la base SQLite
+Collecte toutes les données d'inspection depuis la base SQLite
 pour les transmettre au générateur de rapport IA.
 
 Principe i18n (identique au reste de l'application)
@@ -14,14 +14,14 @@ Sans cela, le modèle recevrait « CB_RECOMMENDED » et le recopierait tel quel
 dans le rapport final.
 
 Usage:
-    from ai.data_collector import collect_audit_data, format_for_prompt
-    data = collect_audit_data(db, audit_id, site_name)
+    from ai.data_collector import collect_inspection_data, format_for_prompt
+    data = collect_inspection_data(db, inspection_id, site_name)
     texte = format_for_prompt(data, language="ar")
 """
 
 from typing import Any
 
-from audit_db import pick_translation
+from inspection_db import pick_translation
 
 
 # ============================================================
@@ -107,13 +107,13 @@ def _symptom(item: dict, lang: str) -> str:
 # ============================================================
 # COLLECTE PRINCIPALE
 # ============================================================
-def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
+def collect_inspection_data(db, inspection_id: str, site_name: str) -> dict:
     """
-    Collecte toutes les données d'un audit depuis la DB.
+    Collecte toutes les données d'une inspection depuis la DB.
 
     Args:
-        db         : instance AuditDB
-        audit_id   : ID de l'audit (ex: "AUDIT-2025-001")
+        db         : instance InspectionDB
+        inspection_id   : ID de l'inspection (ex: "INSPECTION-2025-001")
         site_name  : nom du site / matrice
 
     Returns:
@@ -122,7 +122,7 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
         format_for_prompt().
     """
     data: dict[str, Any] = {
-        "audit_id": audit_id,
+        "inspection_id": inspection_id,
         "site_name": site_name,
         "conformites": {},
         "mc_results": [],
@@ -141,7 +141,7 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
 
     # ---- 1. CONFORMITÉS (C / NC / PC) ----
     try:
-        conformites = db.get_conformity_by_audit(audit_id)
+        conformites = db.get_conformity_by_inspection(inspection_id)
         data["conformites"] = conformites or {}
     except Exception as e:
         _fail("conformites", e)
@@ -154,9 +154,7 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
             #       method, source, evidence, target_human, target_env, target_asset,
             #       symptome_fr, symptome_ar, section_name_fr, section_name_ar,
             #       equipement_fr, equipement_ar, method_fr, method_ar,
-            #       hazard_class, hazard_class_fr, hazard_class_ar,
-            #       evidence_fr, evidence_ar,
-            #       technical_reference, technical_reference_fr, technical_reference_ar)
+            #       hazard_class, hazard_class_fr, hazard_class_ar)
             data["checklist_items"][it[0]] = {
                 "id": it[0],
                 "section_name": it[1],
@@ -173,11 +171,6 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
                 "hazard_class": it[20] if len(it) > 20 else "",
                 "hazard_class_fr": it[21] if len(it) > 21 else "",
                 "hazard_class_ar": it[22] if len(it) > 22 else "",
-                "evidence_fr": it[23] if len(it) > 23 else "",
-                "evidence_ar": it[24] if len(it) > 24 else "",
-                "technical_reference": it[25] if len(it) > 25 else "",
-                "technical_reference_fr": it[26] if len(it) > 26 else "",
-                "technical_reference_ar": it[27] if len(it) > 27 else "",
                 "severity": it[4],
                 "frequency": it[5],
                 "method": it[6],
@@ -192,9 +185,9 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
 
     # ---- 3. RÉSULTATS MONTE CARLO ----
     try:
-        mc_rows = db.get_mc_results(audit_id)
+        mc_rows = db.get_mc_results(inspection_id)
         for r in mc_rows:
-            # r = (id, audit_id, item_id, n_iter, freq_min, freq_mode, freq_max,
+            # r = (id, inspection_id, item_id, n_iter, freq_min, freq_mode, freq_max,
             #      freq_moyenne, freq_p05, freq_p50, freq_p95, severite,
             #      score_risque, niveau_sev, niveau_prob, niveau_risque,
             #      couleur, created_at)
@@ -220,9 +213,9 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
 
     # ---- 4. RISQUE HUMAIN (PLL / FAR / LIRA) ----
     try:
-        hr_rows = db.get_human_risk(audit_id)
+        hr_rows = db.get_human_risk(inspection_id)
         for r in hr_rows:
-            # r = (id, audit_id, item_id, freq_par_an, nb_pers, duree_expo,
+            # r = (id, inspection_id, item_id, freq_par_an, nb_pers, duree_expo,
             #      proba_deces, proba_defaut, pll, far, lira, created_at)
             data["human_risk"].append({
                 "item_id": r[2],
@@ -242,9 +235,9 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
 
     # ---- 5. COÛT-BÉNÉFICE ----
     try:
-        cb_rows = db.get_cost_benefit(audit_id)
+        cb_rows = db.get_cost_benefit(inspection_id)
         for r in cb_rows:
-            # r = (id, audit_id, item_id, currency, industry, freq_par_an,
+            # r = (id, inspection_id, item_id, currency, industry, freq_par_an,
             #      cout_action, cout_perte, duree_indispo, cout_indispo_jour,
             #      perte_annuelle, ratio, recommandation, created_at)
             data["cost_benefit"].append({
@@ -266,9 +259,9 @@ def collect_audit_data(db, audit_id: str, site_name: str) -> dict:
 
     # ---- 6. DISPERSION ----
     try:
-        disp_rows = db.get_dispersion(audit_id)
+        disp_rows = db.get_dispersion(inspection_id)
         for r in disp_rows:
-            # r = (id, audit_id, item_id, substance, taille_fuite, duree_fuite,
+            # r = (id, inspection_id, item_id, substance, taille_fuite, duree_fuite,
             #      vitesse_vent, direction_vent, temperature, pression, humidite,
             #      latitude, longitude, classe_stab, distance_impact,
             #      source_meteo, created_at)
@@ -300,7 +293,7 @@ def _build_summary(data: dict) -> dict:
     """Calcule un résumé statistique pour le prompt."""
 
     conformites = data.get("conformites", {})
-    total_audited = len(conformites)
+    total_inspected = len(conformites)
     n_nc = sum(1 for v in conformites.values() if v == "NC")
     n_pc = sum(1 for v in conformites.values() if v == "PC")
     n_c = sum(1 for v in conformites.values() if v == "C")
@@ -312,7 +305,7 @@ def _build_summary(data: dict) -> dict:
     top_hr = sorted(hr, key=lambda x: x.get("pll", 0) or 0, reverse=True)[:3]
 
     return {
-        "total_audited": total_audited,
+        "total_inspected": total_inspected,
         "n_nc": n_nc,
         "n_pc": n_pc,
         "n_c": n_c,
@@ -334,7 +327,7 @@ def format_for_prompt(data: dict, language: str = "fr") -> str:
     prompt du LLM, dans la langue du RAPPORT.
 
     Args:
-        data     : dict issu de collect_audit_data()
+        data     : dict issu de collect_inspection_data()
         language : "fr" | "ar" | "en" — langue du rapport demandé
     """
     lang = language if language in ("fr", "ar", "en") else "fr"
@@ -351,13 +344,13 @@ def format_for_prompt(data: dict, language: str = "fr") -> str:
     lines = []
 
     # ---- En-tête ----
-    lines.append(f"{_L(lang, 'audit_id')} : {data['audit_id']}")
+    lines.append(f"{_L(lang, 'inspection_id')} : {data['inspection_id']}")
     lines.append(f"{_L(lang, 'site')} : {data['site_name']}")
     lines.append("")
     lines.append(sep)
     lines.append(_L(lang, "summary_title"))
     lines.append(sep)
-    lines.append(f"- {_L(lang, 'audited_symptoms')} : {s['total_audited']}")
+    lines.append(f"- {_L(lang, 'inspected_symptoms')} : {s['total_inspected']}")
     lines.append(f"  - {_L(lang, 'compliant')} (C) : {s['n_c']}")
     lines.append(f"  - {_L(lang, 'partial')} (PC) : {s['n_pc']}")
     lines.append(f"  - {_L(lang, 'non_compliant')} (NC) : {s['n_nc']}")
@@ -465,11 +458,11 @@ def format_for_prompt(data: dict, language: str = "fr") -> str:
 # TEST RAPIDE
 # ============================================================
 if __name__ == "__main__":
-    from audit_db import AuditDB
+    from inspection_db import InspectionDB
 
-    db = AuditDB()
+    db = InspectionDB()
     print("i18n disponible :", I18N_AVAILABLE)
-    data = collect_audit_data(db, "AUDIT-2025-001", "Site Test")
+    data = collect_inspection_data(db, "INSPECTION-2025-001", "Site Test")
     print("Résumé :", data["summary"])
     print()
     print(format_for_prompt(data, language="fr")[:800])

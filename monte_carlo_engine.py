@@ -4,7 +4,7 @@ monte_carlo_engine.py
 Étape 3 du prototype (partie fréquence) : moteur Monte Carlo triangulaire, vectorisé NumPy.
 
 Pour chaque symptôme flaggé NC (non conforme) ou PC (partiellement conforme) lors de
-l'audit (étape 1), on simule sa fréquence de défaillance annuelle par une loi triangulaire
+l'inspection (étape 1), on simule sa fréquence de défaillance annuelle par une loi triangulaire
 (min, mode, max) — ces trois paramètres proviennent du référentiel checklist
 (checklist_loader.py), lui-même basé sur des sources génériques publiques (IOGP RADD, HCRD,
 EGIG, etc., cf. description du projet).

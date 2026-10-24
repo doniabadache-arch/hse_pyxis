@@ -223,7 +223,7 @@ class MatriceManager:
 
 
 # ============================================================
-    # DOONÉES AJOUTÉES — Utilisées par audit_app.py
+    # DOONÉES AJOUTÉES — Utilisées par inspection_app.py
     # ============================================================
 
     def site_exists(self, site_name):

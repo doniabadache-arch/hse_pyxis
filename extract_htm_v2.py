@@ -10,7 +10,6 @@ import re
 import json
 import time
 import html
-import unicodedata
 from pathlib import Path
 from datetime import datetime
 
