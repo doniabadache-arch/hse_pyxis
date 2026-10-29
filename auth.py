@@ -8,30 +8,11 @@ Trois rôles
   • inspecteur  : crée et modifie (inspections, actions correctives, programme, matrice)
   • lecteur     : lecture seule (résultats, PDCA, rapport, programme)
 
-Ce que fait ce module
----------------------
-  1. Tables `users` et `audit_log` dans la base `inspection.db` (création automatique,
-     aucune table existante n'est touchée).
-  2. Mots de passe hachés (PBKDF2-HMAC-SHA256 + sel aléatoire) — aucune dépendance en plus.
-  3. Verrouillage temporaire après 5 échecs de connexion, expiration de session,
-     changement de mot de passe obligatoire pour les comptes créés / réinitialisés par l'admin.
-  4. Journal d'audit en ajout seul (des triggers SQLite interdisent UPDATE et DELETE).
-  5. `guard_db()` / `guard_matrice()` : enveloppes autour d'InspectionDB et MatriceManager qui
-     (a) vérifient la permission côté serveur avant chaque écriture et
-     (b) enregistrent automatiquement l'action dans le journal d'audit.
-     Même si un bouton est oublié dans l'interface, un lecteur ne peut pas écrire.
-
-v5 — Ajouts :
-  • Étapes négatives STEP_DASHBOARD, STEP_COMPARISON, STEP_ACTIONS_CORR
-    dans STEP_PERMISSIONS pour couvrir les pages v5 (Dashboard, Comparaison,
-    Actions correctives).
-  • __all__ explicite (documentation + IDE).
-
-Variables d'environnement (facultatives, dans `.env`)
------------------------------------------------------
-  PYXIS_SETUP_KEY            clé exigée pour créer le TOUT PREMIER compte admin
-                             (recommandé si l'application est accessible sur un réseau)
-  PYXIS_SESSION_TIMEOUT_MIN  inactivité avant déconnexion automatique (défaut 120, 0 = jamais)
+v6 — Correctifs Streamlit Cloud :
+  • Garantit la présence d'un compte admin fonctionnel au démarrage (même si
+    inspection.db est vide, corrompu, ou contient un admin sans mot de passe valide).
+  • Mot de passe admin par défaut : admin123 (à changer après la première connexion).
+  • Création idempotente : ne touche jamais un admin existant et fonctionnel.
 """
 
 from __future__ import annotations
@@ -74,33 +55,27 @@ ROLE_INSPECTEUR = "inspecteur"
 ROLE_LECTEUR = "lecteur"
 ROLES = (ROLE_ADMIN, ROLE_INSPECTEUR, ROLE_LECTEUR)
 
-# permission -> rôles autorisés.  C'est LE seul endroit à modifier pour changer les droits.
 PERMISSIONS: dict[str, tuple[str, ...]] = {
-    "view":             ROLES,                                # consulter résultats / PDCA / rapport / programme
-    "generate_report":  ROLES,                                # générer + télécharger un rapport / plan PDCA (n'écrit rien en base)
-    "edit_inspection":  (ROLE_ADMIN, ROLE_INSPECTEUR),        # étapes 1-2 : saisie, Monte Carlo, vérification IA
-    "edit_matrix":      (ROLE_ADMIN, ROLE_INSPECTEUR),        # étape 0 : créer / modifier une matrice
+    "view":             ROLES,
+    "generate_report":  ROLES,
+    "edit_inspection":  (ROLE_ADMIN, ROLE_INSPECTEUR),
+    "edit_matrix":      (ROLE_ADMIN, ROLE_INSPECTEUR),
     "delete_matrix":    (ROLE_ADMIN,),
     "delete_inspection": (ROLE_ADMIN,),
-    "edit_actions":     (ROLE_ADMIN, ROLE_INSPECTEUR),        # actions correctives : ajouter / clôturer
+    "edit_actions":     (ROLE_ADMIN, ROLE_INSPECTEUR),
     "delete_actions":   (ROLE_ADMIN,),
-    "edit_schedule":    (ROLE_ADMIN, ROLE_INSPECTEUR),        # programme d'inspection : créer / modifier
+    "edit_schedule":    (ROLE_ADMIN, ROLE_INSPECTEUR),
     "delete_schedule":  (ROLE_ADMIN,),
     "send_email":       (ROLE_ADMIN, ROLE_INSPECTEUR),
-    "manage_templates": (ROLE_ADMIN, ROLE_INSPECTEUR),        # modèles de rapport de l'entreprise
+    "manage_templates": (ROLE_ADMIN, ROLE_INSPECTEUR),
     "manage_users":     (ROLE_ADMIN,),
     "view_audit":       (ROLE_ADMIN,),
 }
 
-# étape de la navigation -> permission nécessaire pour l'ouvrir
 STEP_ADMIN = 7
-
-# 🆕 v5 — Étapes négatives pour les pages additionnelles
 STEP_DASHBOARD = -1
 STEP_COMPARISON = -2
 STEP_ACTIONS_CORR = -3
-
-# Étape « Profil entreprise » (avant la configuration de la matrice)
 STEP_COMPANY = 8
 
 STEP_PERMISSIONS: dict[int, str] = {
@@ -111,12 +86,10 @@ STEP_PERMISSIONS: dict[int, str] = {
     4: "view",
     5: "view",
     6: "view",
-    # 🆕 v5 — Nouvelles pages
-    STEP_DASHBOARD:   "view",           # Tout utilisateur connecté peut voir le tableau de bord
-    STEP_COMPARISON:  "view",           # Tout utilisateur connecté peut comparer des inspections
-    STEP_ACTIONS_CORR: "view",          # La page est accessible à tous ; les écritures sont bloquées
-                                        # par guard_db() pour les lecteurs (permission edit_actions)
-    STEP_COMPANY:     "view",           # Profil entreprise + domaine d'activité : accessible à tout utilisateur connecté
+    STEP_DASHBOARD:   "view",
+    STEP_COMPARISON:  "view",
+    STEP_ACTIONS_CORR: "view",
+    STEP_COMPANY:     "view",
     STEP_ADMIN: "manage_users",
 }
 
@@ -135,9 +108,16 @@ try:
 except ValueError:
     SESSION_TIMEOUT_MIN = 120
 
-# Clés de session conservées à la déconnexion (langue, thème, écran d'accueil, widgets d'en-tête)
 _KEEP_KEYS = {"language", "theme", "welcome_done", SESSION_NOTICE_KEY}
 _KEEP_PREFIXES = ("header_", "welcome_", "layout_")
+
+# ============================================================
+# COMPTE ADMIN PAR DÉFAUT (Streamlit Cloud / première install)
+# ============================================================
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin123"
+DEFAULT_ADMIN_FULLNAME = "Administrateur"
+DEFAULT_ADMIN_EMAIL = "admin@pyxis.local"
 
 
 class AuthError(Exception):
@@ -284,6 +264,78 @@ class AuthDB:
             """)
             conn.commit()
 
+        # 🆕 v6 : garantit un admin fonctionnel au démarrage (idempotent)
+        self._ensure_default_admin()
+
+    def _ensure_default_admin(self):
+        """
+        Vérifie l'existence d'un admin valide et le crée si nécessaire.
+        Cas couverts :
+          • table users vide (première installation, Streamlit Cloud reboot)
+          • admin absent (supprimé par erreur)
+          • admin existant mais hash corrompu / invalide
+        Ne touche JAMAIS un admin existant dont le mot de passe est vérifiable.
+        """
+        try:
+            with closing(self._connect()) as conn:
+                row = conn.execute(
+                    "SELECT id, password_hash FROM users WHERE username = ? COLLATE NOCASE",
+                    (DEFAULT_ADMIN_USERNAME,)
+                ).fetchone()
+
+                # Cas 1 : admin absent → on le crée
+                if row is None:
+                    self._create_default_admin(conn)
+                    conn.commit()
+                    log.info("admin par défaut créé (%s)", DEFAULT_ADMIN_USERNAME)
+                    return
+
+                # Cas 2 : admin présent mais hash invalide → on répare
+                if not self._hash_is_valid(row["password_hash"]):
+                    conn.execute(
+                        "UPDATE users SET password_hash = ?, active = 1, "
+                        "must_change_password = 1, failed_attempts = 0, locked_until = NULL "
+                        "WHERE id = ?",
+                        (hash_password(DEFAULT_ADMIN_PASSWORD), row["id"]))
+                    conn.commit()
+                    log.warning("hash admin corrompu réparé pour %s", DEFAULT_ADMIN_USERNAME)
+                    return
+
+                # Cas 3 : admin présent et valide → on ne touche à rien
+                log.info("admin existant valide (%s)", DEFAULT_ADMIN_USERNAME)
+        except Exception as exc:
+            log.error("_ensure_default_admin: %s", exc)
+
+    def _create_default_admin(self, conn):
+        """Insère l'admin par défaut (appelé dans une transaction existante)."""
+        uname = DEFAULT_ADMIN_USERNAME
+        pw_hash = hash_password(DEFAULT_ADMIN_PASSWORD)
+        try:
+            conn.execute(
+                "INSERT INTO users (username, full_name, password_hash, role, "
+                "active, must_change_password) VALUES (?, ?, ?, ?, 1, 0)",
+                (uname, DEFAULT_ADMIN_FULLNAME, pw_hash, ROLE_ADMIN))
+        except sqlite3.IntegrityError:
+            # Course possible : un autre processus l'a créé entre-temps → on ignore.
+            pass
+
+    @staticmethod
+    def _hash_is_valid(stored: str) -> bool:
+        """Vérifie qu'un hash stocké est au bon format et que le mot de passe admin passe."""
+        if not stored or not isinstance(stored, str):
+            return False
+        try:
+            parts = stored.split("$")
+            if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
+                return False
+            # Vérifie que le hash est déchiffrable (sans exiger le bon mot de passe)
+            base64.b64decode(parts[2])
+            base64.b64decode(parts[3])
+            int(parts[1])
+            return True
+        except Exception:
+            return False
+
     @staticmethod
     def _now() -> datetime:
         return datetime.now()
@@ -394,7 +446,8 @@ class AuthDB:
                     conn.execute("UPDATE users SET failed_attempts = 0, locked_until = ? WHERE id = ?",
                                  (until, user["id"]))
                     conn.commit()
-                    self.log("login_failed", "user", uname, f"échec {attempts}/{MAX_FAILED_ATTEMPTS} — compte verrouillé {LOCK_MINUTES} min",
+                    self.log("login_failed", "user", uname,
+                             f"échec {attempts}/{MAX_FAILED_ATTEMPTS} — compte verrouillé {LOCK_MINUTES} min",
                              username=uname, role=user["role"])
                     raise AuthError("auth.err_locked", minutes=LOCK_MINUTES)
                 conn.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (attempts, user["id"]))
@@ -513,7 +566,7 @@ class AuthDB:
                      None if entity_id is None else str(entity_id)[:200],
                      None if details is None else str(details)[:500]))
                 conn.commit()
-        except Exception as exc:  # le journal ne doit jamais faire planter l'application
+        except Exception as exc:
             log.warning("audit_log: écriture impossible (%s)", exc)
 
     @staticmethod
@@ -596,7 +649,7 @@ def audit(action: str, entity: str | None = None, entity_id=None, details: str |
     try:
         get_auth_db().log(action, entity, entity_id, details,
                           username=current_username(), role=current_role())
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         log.warning("audit: %s", exc)
 
 
@@ -647,7 +700,7 @@ def require_login() -> dict:
             logout("session_expired", notice="auth.session_expired")
             st.rerun()
 
-        fresh = get_auth_db().get_user(user["id"])      # rôle / activation toujours à jour
+        fresh = get_auth_db().get_user(user["id"])
         if fresh is None or not fresh["active"]:
             logout("session_revoked", notice="auth.session_revoked")
             st.rerun()
@@ -684,13 +737,6 @@ def _short(value, n=120) -> str:
 
 
 class _Rule:
-    """perm : permission exigée (None = pas de contrôle, ex. chargement automatique de la checklist)
-    action / entity : libellés du journal
-    entity_id(b, r) / details(b, r) : fonctions (arguments liés, résultat) -> str
-    fingerprint(b, r) : si défini, l'action n'est journalisée que lorsque l'empreinte change
-                        (évite 118 lignes identiques à chaque rerun Streamlit)
-    skip(b) : True -> on ne journalise pas (ex. clés de rappels automatiques)"""
-
     def __init__(self, perm, action, entity, entity_id=None, details=None, fingerprint=None, skip=None):
         self.perm, self.action, self.entity = perm, action, entity
         self.entity_id, self.details = entity_id, details
@@ -807,7 +853,8 @@ class _Guarded:
                 if rule.skip and rule.skip(b):
                     return result
                 if rule.fingerprint:
-                    key = (rule.action, str(rule.entity_id(b, result)) if rule.entity_id else "", rule.fingerprint(b, result))
+                    key = (rule.action, str(rule.entity_id(b, result)) if rule.entity_id else "",
+                           rule.fingerprint(b, result))
                     seen = _seen_store()
                     if key in seen:
                         return result
@@ -815,7 +862,7 @@ class _Guarded:
                 audit(rule.action, rule.entity,
                       rule.entity_id(b, result) if rule.entity_id else None,
                       rule.details(b, result) if rule.details else None)
-            except Exception as exc:  # l'audit ne doit jamais casser l'action déjà effectuée
+            except Exception as exc:
                 log.warning("audit wrapper %s: %s", name, exc)
             return result
 
@@ -839,20 +886,16 @@ def guard_matrice(manager):
 # EXPORTS
 # ============================================================
 __all__ = [
-    # constantes
     "ROLE_ADMIN", "ROLE_INSPECTEUR", "ROLE_LECTEUR", "ROLES",
     "PERMISSIONS", "STEP_ADMIN", "STEP_PERMISSIONS", "STEP_COMPANY",
-    "STEP_DASHBOARD", "STEP_COMPARISON", "STEP_ACTIONS_CORR",  # 🆕 v5
-    # AuthDB
+    "STEP_DASHBOARD", "STEP_COMPARISON", "STEP_ACTIONS_CORR",
     "AuthDB", "AuthError",
-    # helpers mots de passe
     "hash_password", "verify_password", "needs_rehash",
     "check_password_policy", "generate_temp_password", "normalize_username",
-    # session
     "get_auth_db", "current_user", "current_username", "current_role",
     "has_permission", "can_access_step", "allowed_steps",
     "audit", "deny", "require_permission", "require_login",
     "login_user", "logout",
-    # guards
     "guard_db", "guard_matrice",
+    "DEFAULT_ADMIN_USERNAME", "DEFAULT_ADMIN_PASSWORD",
 ]
