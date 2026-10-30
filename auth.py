@@ -13,6 +13,10 @@ v6 — Correctifs Streamlit Cloud :
     inspection.db est vide, corrompu, ou contient un admin sans mot de passe valide).
   • Mot de passe admin par défaut : admin123 (à changer après la première connexion).
   • Création idempotente : ne touche jamais un admin existant et fonctionnel.
+
+v7 — Compte personnel :
+  • Crée aussi automatiquement le compte personnel « hsepyxis » (rôle admin) à chaque
+    démarrage s'il est absent (ex. base effacée sur Streamlit Cloud) ou si son hash est invalide.
 """
 
 from __future__ import annotations
@@ -118,6 +122,11 @@ DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "admin123"
 DEFAULT_ADMIN_FULLNAME = "Administrateur"
 DEFAULT_ADMIN_EMAIL = "admin@pyxis.local"
+
+# 🆕 v7 : compte personnel recréé automatiquement au démarrage
+OWNER_USERNAME = "hsepyxis"
+OWNER_PASSWORD = os.getenv("PYXIS_OWNER_PASSWORD", "Pyxis2026")
+OWNER_FULLNAME = "HSE PYXIS User"
 
 
 class AuthError(Exception):
@@ -275,6 +284,8 @@ class AuthDB:
           • admin absent (supprimé par erreur)
           • admin existant mais hash corrompu / invalide
         Ne touche JAMAIS un admin existant dont le mot de passe est vérifiable.
+
+        v7 : garantit aussi le compte personnel « hsepyxis » (voir _ensure_owner_account).
         """
         try:
             with closing(self._connect()) as conn:
@@ -283,15 +294,13 @@ class AuthDB:
                     (DEFAULT_ADMIN_USERNAME,)
                 ).fetchone()
 
-                # Cas 1 : admin absent → on le crée
                 if row is None:
+                    # Cas 1 : admin absent → on le crée
                     self._create_default_admin(conn)
                     conn.commit()
                     log.info("admin par défaut créé (%s)", DEFAULT_ADMIN_USERNAME)
-                    return
-
-                # Cas 2 : admin présent mais hash invalide → on répare
-                if not self._hash_is_valid(row["password_hash"]):
+                elif not self._hash_is_valid(row["password_hash"]):
+                    # Cas 2 : admin présent mais hash invalide → on répare
                     conn.execute(
                         "UPDATE users SET password_hash = ?, active = 1, "
                         "must_change_password = 1, failed_attempts = 0, locked_until = NULL "
@@ -299,12 +308,41 @@ class AuthDB:
                         (hash_password(DEFAULT_ADMIN_PASSWORD), row["id"]))
                     conn.commit()
                     log.warning("hash admin corrompu réparé pour %s", DEFAULT_ADMIN_USERNAME)
-                    return
+                else:
+                    # Cas 3 : admin présent et valide → on ne touche à rien
+                    log.info("admin existant valide (%s)", DEFAULT_ADMIN_USERNAME)
 
-                # Cas 3 : admin présent et valide → on ne touche à rien
-                log.info("admin existant valide (%s)", DEFAULT_ADMIN_USERNAME)
+                # 🆕 v7 : compte personnel (exécuté dans TOUS les cas ci-dessus,
+                # pas de `return` avant pour ne pas le sauter quand l'admin vient d'être créé)
+                self._ensure_owner_account(conn)
         except Exception as exc:
             log.error("_ensure_default_admin: %s", exc)
+
+    def _ensure_owner_account(self, conn):
+        """🆕 Crée le compte personnel hsepyxis (admin) s'il est absent, ou répare son hash s'il est invalide.
+        Ne modifie jamais le mot de passe d'un compte existant dont le hash est valide."""
+        row_custom = conn.execute(
+            "SELECT id, password_hash FROM users WHERE username = ? COLLATE NOCASE",
+            (OWNER_USERNAME,)
+        ).fetchone()
+
+        if row_custom is None:
+            try:
+                conn.execute(
+                    "INSERT INTO users (username, full_name, password_hash, role, active, must_change_password) "
+                    "VALUES (?, ?, ?, ?, 1, 0)",
+                    (OWNER_USERNAME, OWNER_FULLNAME, hash_password(OWNER_PASSWORD), ROLE_ADMIN))
+                conn.commit()
+                log.info("Compte %s créé automatiquement", OWNER_USERNAME)
+            except sqlite3.IntegrityError:
+                conn.rollback()  # créé entre-temps par un autre processus
+        elif not self._hash_is_valid(row_custom["password_hash"]):
+            conn.execute(
+                "UPDATE users SET password_hash = ?, active = 1, must_change_password = 0, "
+                "failed_attempts = 0, locked_until = NULL WHERE id = ?",
+                (hash_password(OWNER_PASSWORD), row_custom["id"]))
+            conn.commit()
+            log.warning("hash du compte %s réparé", OWNER_USERNAME)
 
     def _create_default_admin(self, conn):
         """Insère l'admin par défaut (appelé dans une transaction existante)."""
